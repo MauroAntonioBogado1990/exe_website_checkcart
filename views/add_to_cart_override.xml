@@ -1,0 +1,8 @@
+<odoo>
+  <template id="override_product_add_to_cart_button" inherit_id="website_sale.product" name="Override Add to Cart Button">
+    <xpath expr="//a[@id='add_to_cart']" position="attributes">
+      <attribute name="t-att-data-product-id">product.id</attribute>
+      <attribute name="href">#</attribute>
+    </xpath>
+  </template>
+</odoo>

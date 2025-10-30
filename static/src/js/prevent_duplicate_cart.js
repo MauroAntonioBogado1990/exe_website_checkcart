@@ -1,27 +1,45 @@
 odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
-    const ajax = require('web.ajax');
     const publicWidget = require('web.public.widget');
+    const rpc = require('web.rpc'); // ✅ necesario para llamar al controlador
 
     publicWidget.registry.PreventDuplicateCart = publicWidget.Widget.extend({
-        selector: '.oe_website_sale',
+        selector: 'body',
+
+        start: function () {
+            console.log("PreventDuplicateCart montado");
+            return this._super.apply(this, arguments);
+        },
+
         events: {
-            'click .add_to_cart_button': '_onAddToCart',
+            'click .js_check_product': '_onAddToCart',
         },
 
         _onAddToCart: function (ev) {
             ev.preventDefault();
-            const productId = $(ev.currentTarget).data('product-id');
+            ev.stopImmediatePropagation();
 
-            ajax.jsonRpc('/shop/cart/update', 'call', {
-                product_id: productId,
-                add_qty: 1,
-            }).then(function (response) {
+            const productId = $(ev.currentTarget).data('product-id');
+            console.log("Producto clickeado:", productId); // ✅ validación visual
+
+            // Podés dejar esto como prueba mínima:
+            alert("hola");
+
+            // O avanzar con el llamado al controlador:
+            /*
+            rpc.query({
+                route: '/shop/cart/update',
+                params: {
+                    product_id: productId,
+                    add_qty: 1,
+                },
+            }).then(response => {
                 if (response.error) {
-                    alert(response.message); // Podés usar SweetAlert o Owl para algo más visual
+                    alert(response.message);
                 } else {
-                    location.reload(); // O actualizar el carrito dinámicamente
+                    alert("Producto agregado al carrito");
                 }
             });
+            */
         },
     });
 });
