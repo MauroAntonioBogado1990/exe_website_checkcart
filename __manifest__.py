@@ -13,7 +13,7 @@
     ],
     'assets': {
     'web.assets_frontend': [
-        'exe_website_date/views/website_date.xml',
+        'exe_website_checkcart/static/src/js/prevent_duplicate_cart.js',
     ],
     },
 
