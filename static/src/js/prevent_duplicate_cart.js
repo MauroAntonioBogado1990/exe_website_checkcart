@@ -1,4 +1,4 @@
-odoo.define('your_module.prevent_duplicate_cart', function (require) {
+odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
     const ajax = require('web.ajax');
     const publicWidget = require('web.public.widget');
 

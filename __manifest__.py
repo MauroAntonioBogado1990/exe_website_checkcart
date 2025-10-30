@@ -7,7 +7,7 @@
     'depends': ['base','sale','web', 'website'],
     'data': [
         #'security/ir.model.access.csv',
-        'views/assets.xml',
+        #'views/assets.xml',
         
         
     ],
