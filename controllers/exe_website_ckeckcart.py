@@ -4,66 +4,55 @@ from odoo.http import request
 from odoo.tools.translate import _
 from odoo.addons.website_sale.controllers.main import WebsiteSale
 
-class WebsiteSaleCheck(WebsiteSale):
+class WebsiteSaleWarning(WebsiteSale):
 
     @http.route('/shop/cart/update_json', type='json', auth="public", methods=['POST'], website=True, csrf=False)
-    def cart_update_json(self, product_id, add_qty=1, set_qty=0, **kwargs):
-        try:
-            product_id = int(product_id)
-        except Exception:
-            pass
-
+    def cart_update_json(self, product_id, add_qty=1, set_qty=0, force_add=False, **kwargs):
+        
+        product_id = int(product_id) if isinstance(product_id, (str, int)) else product_id
         product = request.env['product.product'].browse(product_id)
-
-        # Obtener parámetros
-        params = getattr(request, 'jsonrequest', None) or request.params or {}
-
-        # Detectar si se envió set_qty explícitamente (incluso si es 0)
-        set_qty_raw = params.get('set_qty', kwargs.get('set_qty'))
-        set_qty_provided = set_qty_raw is not None and str(set_qty_raw).strip() != ''
-
-        # Normalizar valores
-        try:
-            set_qty_param = float(set_qty_raw or 0)
-        except Exception:
-            set_qty_param = float(set_qty or 0)
-
-        try:
-            # Aquí add_qty_param puede ser positivo (agregar) o negativo (reducir)
-            add_qty_param = float(params.get('add_qty', add_qty) or 0)
-        except Exception:
-            add_qty_param = float(add_qty or 0)
-
-        # Verificar si el producto ya estaba en el carrito antes de la operación
-        existed_before = False
+        
+        # 1. Chequear si la línea existe ANTES de la operación
+        line_exists = False
         try:
             order = request.website.sale_get_order(force_create=False)
             if order:
                 line = order.order_line.filtered(lambda l: l.product_id.id == product_id)
                 if line:
-                    existed_before = True
+                    line_exists = True
         except Exception:
             pass
+        
+        # Almacenar un posible mensaje de aviso
+        warning_message = False
 
-        # Ejecutar la lógica original con parámetros corregidos.
-        # Esto es crucial: Si set_qty_provided es True, se usa set_qty_param.
-        # Si set_qty_provided es False, se usa add_qty_param (que puede ser negativo para reducir).
-        result = super(WebsiteSaleCheck, self).cart_update_json(
+        # 2. Lógica para el Aviso
+        # Solo avisamos si el producto YA EXISTE y la intención es AGREGAR unidades (add_qty > 0)
+        if line_exists and add_qty > 0:
+            warning_message = _("¡El producto '%s' ya estaba en el carrito! Se ha actualizado la cantidad.") % product.name
+            
+        # 3. Corrección Crítica: Lógica para manejar correctamente la cantidad
+        # Si 'set_qty' se proporciona (lo que ocurre al eliminar o ajustar la cantidad en el carrito),
+        # 'add_qty' DEBE ser 0 para que no se sume una unidad extra.
+        # Esto también permite que set_qty=0 elimine el producto.
+        
+        # Odoo por defecto pasa set_qty como 0 si se usa el botón de "Eliminar" del carrito.
+        # Si set_qty es diferente de False/None, asumimos que se quiere ESTABLECER la cantidad.
+        if set_qty is not False and set_qty >= 0:
+            add_qty = 0
+
+        # 4. Ejecutar la lógica base de Odoo
+        # Esta llamada realiza la adición, actualización o eliminación real.
+        result = super(WebsiteSaleWarning, self).cart_update_json(
             product_id,
-            add_qty=0 if set_qty_provided else add_qty_param,
-            set_qty=set_qty_param if set_qty_provided else 0,
+            add_qty=add_qty,
+            set_qty=set_qty,
             **kwargs
         )
-
-        # --- INICIO DE LA CORRECCIÓN ---
-        # Mostrar advertencia solo si la intención fue agregar (add_qty > 0)
-        # y no se intentó establecer una cantidad explícita (set_qty_provided = False)
-        try:
-            if add_qty_param > 0 and not set_qty_provided and existed_before:
-                result['warning'] = _("El producto '%s' ya existe en el carrito.") % product.name
-        except Exception:
-            pass
-
-        # --- FIN DE LA CORRECCIÓN ---
+        
+        # 5. Si hay un mensaje de aviso preparado, se añade al resultado
+        # Usamos 'warning' que es más estándar para mensajes temporales en el frontend de Odoo.
+        if warning_message:
+            result['warning'] = warning_message
 
         return result

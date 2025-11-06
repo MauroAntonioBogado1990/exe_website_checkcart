@@ -1,21 +1,29 @@
-odoo.define('exe_website_checkcart.notify_cart_addition', function (require) {
+odoo.define('exe_website_checkcart.confirm_cart_addition', function (require) {
     "use strict";
 
     const publicWidget = require('web.public.widget');
+    const ajax = require('web.ajax');
     const core = require('web.core');
     const _t = core._t;
 
     publicWidget.registry.WebsiteSale.include({
 
         _callController: function (route, params) {
-            var def = this._super.apply(this, arguments);
+            const def = this._super.apply(this, arguments);
 
             if (route !== '/shop/cart/update_json') {
                 return def;
             }
 
-            var self = this;
+            const self = this;
             return def.then(function (data) {
+                // Si se requiere confirmación, mostrar modal
+                if (data && data.require_confirmation) {
+                    self._showConfirmationModal(data);
+                    return Promise.resolve(); // Detener flujo original
+                }
+
+                // Mostrar advertencia si existe
                 if (data && data.warning) {
                     self.displayNotification({
                         type: 'warning',
@@ -24,44 +32,70 @@ odoo.define('exe_website_checkcart.notify_cart_addition', function (require) {
                         sticky: false,
                     });
                 }
+
+                // Mostrar mensaje informativo si existe
+                if (data && data.message) {
+                    self.displayNotification({
+                        type: 'info',
+                        title: _t('Información'),
+                        message: data.message,
+                        sticky: false,
+                    });
+                }
+
                 return data;
             });
-        }
-    });
-});
+        },
 
+        _showConfirmationModal: function (data) {
+            const modal = $(`
+                <div class="modal fade" id="confirmAddModal" tabindex="-1" role="dialog">
+                  <div class="modal-dialog modal-dialog-centered" role="document">
+                    <div class="modal-content">
+                      <div class="modal-header bg-warning text-dark">
+                        <h5 class="modal-title">${_t("Producto ya en el carrito")}</h5>
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                      </div>
+                      <div class="modal-body">
+                        <p>${data.message}</p>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">${_t("Cancelar")}</button>
+                        <button type="button" class="btn btn-primary confirm-add">${_t("Desea continuar")}</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+            `);
 
-odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
-    "use strict";
+            $('body').append(modal);
+            modal.modal('show');
 
-    function showToast(msg) {
-        var $toast = $('<div/>', {class: 'exe-cart-toast'}).text('⚠️ ' + msg).css({
-            position: 'fixed',
-            right: '20px',
-            top: '20px',
-            'z-index': 2000,
-            padding: '12px 16px',
-            'background-color': '#fbeed5',
-            color: '#8a6d3b',
-            'border-radius': '4px',
-            'border': '1px solid rgba(0,0,0,0.05)',
-            'box-shadow': '0 2px 6px rgba(0,0,0,0.12)'
-        });
-        $('body').append($toast);
-        setTimeout(function () { $toast.fadeOut(250, function () { $toast.remove(); }); }, 3000);
-    }
+            modal.find('.confirm-add').on('click', function () {
+                modal.modal('hide');
+                modal.remove();
 
-    $(document).ajaxComplete(function (event, xhr, settings) {
-        try {
-            if (!settings || !settings.url || xhr.status !== 200) return;
-            if (settings.url.indexOf('/shop/cart/update_json') === -1) return;
+                // Reintentar la llamada con force_add: true
+                ajax.jsonRpc('/shop/cart/update_json', 'call', {
+                    product_id: data.product_id,
+                    add_qty: data.add_qty,
+                    set_qty: data.set_qty,
+                    force_add: true
+                }).then(function (result) {
+                    if (result && result.message) {
+                        publicWidget.registry.WebsiteSale.prototype.displayNotification({
+                            type: 'info',
+                            title: _t('Confirmado'),
+                            message: result.message,
+                            sticky: false,
+                        });
+                    }
+                });
+            });
 
-            var data = JSON.parse(xhr.responseText || '{}');
-            if (data.warning) {
-                showToast(data.warning);
-            }
-        } catch (err) {
-            console.error('prevent_duplicate_cart error:', err);
+            modal.on('hidden.bs.modal', function () {
+                modal.remove();
+            });
         }
     });
 });
