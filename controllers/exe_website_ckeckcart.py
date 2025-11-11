@@ -28,7 +28,7 @@ class WebsiteSaleWarning(WebsiteSale):
 
         # 2. Lógica para el Aviso
         if line_exists and add_qty > 0:
-            warning_message = _("¡El producto '%s' ya estaba en el carrito! Se ha actualizado la cantidad.") % product.name
+            warning_message = _("¡El producto '%s' ya estaba en el carrito!") % product.name
             
         # 3. Solución Explícita de Eliminación (set_qty=0): Corrección del return
         if set_qty == 0:
@@ -37,30 +37,24 @@ class WebsiteSaleWarning(WebsiteSale):
                 if order:
                     line = order.order_line.filtered(lambda l: l.product_id.id == product_id)
                     if line:
-                        line.unlink() # **¡Eliminación exitosa!**
+                        line.unlink() # Elimina la línea
                         
-                        # **CORRECCIÓN CRÍTICA AQUÍ:**
-                        # Para devolver el resultado esperado después de la eliminación manual,
-                        # llamamos al método del controlador base.
-                        # Obtenemos la orden actualizada después de eliminar.
-                        order = request.website.sale_get_order() 
-                        
-                        return self._get_res_url_response(order) 
-                        # 'self._get_res_url_response(order)' es la forma correcta 
-                        # de obtener el JSON de respuesta del carrito actualizado en muchos Odoo
+                        # **CORRECCIÓN FINAL Y CRÍTICA:**
+                        # Devolvemos el diccionario de actualización del carrito llamando al 
+                        # método de la orden de venta (_cart_update_result), que es el estándar.
+                        order.invalidate_cache() # Limpiar caché para asegurar datos frescos
+                        return order._cart_update_result() # <- Usamos el método de la ORDEN
                         
             except Exception as e:
-                # Opcional: imprimir error para debug
-                # print(f"Error al eliminar línea manualmente: {e}")
-                pass
+                # Si hay error en la eliminación manual, continuamos con la lógica base.
+                pass 
                 
         # 4. Lógica de adición/actualización:
-        # Si set_qty está siendo usado para actualizar (N > 0) y NO se eliminó antes, 
-        # anulamos add_qty para no interferir.
+        # Si set_qty está siendo usado para actualizar (o eliminar, si el paso 3 falló), anulamos add_qty.
         if set_qty is not False:
             add_qty = 0
             
-        # 5. Ejecutar la lógica base de Odoo (si no se eliminó manualmente)
+        # 5. Ejecutar la lógica base de Odoo (si no se eliminó manualmente o si no se hizo set_qty=0)
         result = super(WebsiteSaleWarning, self).cart_update_json(
             product_id,
             add_qty=add_qty,

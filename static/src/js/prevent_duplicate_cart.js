@@ -11,16 +11,32 @@ odoo.define('exe_website_checkcart.confirm_cart_addition', function (require) {
         _callController: function (route, params) {
             const def = this._super.apply(this, arguments);
 
+            // Sólo nos interesa el endpoint del carrito
             if (route !== '/shop/cart/update_json') {
                 return def;
             }
 
             const self = this;
+
             return def.then(function (data) {
-                // Si se requiere confirmación, mostrar modal
+                // Si no hay data, devolvemos la respuesta tal cual
+                if (!data) {
+                    return data;
+                }
+
+                // Si el backend pide confirmación para esta operación mostramos modal,
+                // pero NO alteramos la ejecución original ni revertimos la acción.
+                // El modal, si se confirma, realizará una llamada adicional con force_add:true
+                // (esto respeta la lógica del servidor y no provoca dobles efectos al eliminar).
                 if (data && data.require_confirmation) {
-                    self._showConfirmationModal(data);
-                    return Promise.resolve(); // Detener flujo original
+                    // Determinar si la intención original era eliminar (set_qty === 0)
+                    // Si era eliminación, NO mostrar modal de confirmación.
+                    var isDeletion = (params && (typeof params.set_qty !== 'undefined') && Number(params.set_qty) === 0);
+                    if (!isDeletion) {
+                        self._showConfirmationModal(data);
+                    }
+                    // Devolver data para que la UI procese la respuesta original sin bloqueos
+                    return data;
                 }
 
                 // Mostrar advertencia si existe
@@ -34,11 +50,11 @@ odoo.define('exe_website_checkcart.confirm_cart_addition', function (require) {
                 }
 
                 // Mostrar mensaje informativo si existe
-                if (data && data.message) {
+                if (data && (data.message || data.info)) {
                     self.displayNotification({
                         type: 'info',
                         title: _t('Información'),
-                        message: data.message,
+                        message: data.message || data.info,
                         sticky: false,
                     });
                 }
@@ -57,10 +73,10 @@ odoo.define('exe_website_checkcart.confirm_cart_addition', function (require) {
                         <button type="button" class="close" data-dismiss="modal">&times;</button>
                       </div>
                       <div class="modal-body">
-                        <p>${data.message}</p>
+                        <p>${data.message || _t("El producto ya existe en el carrito. ¿Desea continuar?")}</p>
                       </div>
                       <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">${_t("Cancelar")}</button>
+                        <button type="button" class="btn btn-secondary cancel-add" data-dismiss="modal">${_t("Cancelar")}</button>
                         <button type="button" class="btn btn-primary confirm-add">${_t("Desea continuar")}</button>
                       </div>
                     </div>
@@ -75,27 +91,78 @@ odoo.define('exe_website_checkcart.confirm_cart_addition', function (require) {
                 modal.modal('hide');
                 modal.remove();
 
-                // Reintentar la llamada con force_add: true
+                // Reintentar la llamada con force_add: true (no alteramos la llamada original)
                 ajax.jsonRpc('/shop/cart/update_json', 'call', {
                     product_id: data.product_id,
                     add_qty: data.add_qty,
                     set_qty: data.set_qty,
                     force_add: true
                 }).then(function (result) {
-                    if (result && result.message) {
+                    if (result && (result.message || result.info)) {
                         publicWidget.registry.WebsiteSale.prototype.displayNotification({
                             type: 'info',
                             title: _t('Confirmado'),
-                            message: result.message,
+                            message: result.message || result.info,
                             sticky: false,
                         });
                     }
+                }).catch(function (err) {
+                    // Silenciar errores de la llamada adicional (no romper UX)
+                    console.error('confirm_add error', err);
                 });
             });
 
             modal.on('hidden.bs.modal', function () {
                 modal.remove();
             });
+        }
+    });
+});
+
+odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
+    "use strict";
+    // Asegurarnos de cargar primero el módulo de la tienda para evitar errores
+    require('website_sale.website_sale');
+
+    var core = require('web.core');
+    var _t = core._t;
+
+    function showToast(msg, level) {
+        level = level || 'info';
+        var bg = (level === 'warning' ? '#f2dede' : '#dff0d8');
+        var color = (level === 'warning' ? '#a94442' : '#3c763d');
+        var $toast = $('<div/>', {class: 'exe-cart-toast'}).text(msg).css({
+            position: 'fixed',
+            right: '20px',
+            top: '20px',
+            'z-index': 20000,
+            padding: '10px 14px',
+            'background-color': bg,
+            color: color,
+            'border-radius': '4px',
+            'border': '1px solid rgba(0,0,0,0.05)',
+            'box-shadow': '0 2px 6px rgba(0,0,0,0.12)'
+        });
+        $('body').append($toast);
+        setTimeout(function () { $toast.fadeOut(250, function () { $toast.remove(); }); }, 3000);
+    }
+
+    // Sólo escuchar respuestas AJAX del endpoint del carrito y mostrar mensajes.
+    // NO sobreescribimos ni interceptamos métodos de WebsiteSale para no romper eliminar/ajustar cantidades.
+    $(document).ajaxComplete(function (event, xhr, settings) {
+        try {
+            if (!settings || !settings.url) { return; }
+            if (settings.url.indexOf('/shop/cart/update_json') === -1) { return; }
+            if (xhr.status !== 200) { return; }
+
+            var data;
+            try { data = JSON.parse(xhr.responseText); } catch (e) { return; }
+            if (!data) { return; }
+
+            if (data.warning) { showToast(data.warning, 'warning'); }
+            else if (data.info || data.message) { showToast(data.info || data.message, 'info'); }
+        } catch (err) {
+            console.error('prevent_duplicate_cart error:', err);
         }
     });
 });
