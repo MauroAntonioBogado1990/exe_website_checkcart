@@ -1,6 +1,8 @@
 <odoo>
   <template id="assets_frontend" name="Prevent Duplicate Cart Assets" inherit_id="web.assets_frontend">
     <xpath expr="." position="inside">
+    <!-- Agregamos el archivo que contiene la logica del modal y _callController -->
+      <script type="text/javascript" src="/exe_website_checkcart/static/src/js/website_sale_warning.js"/>
       <script type="text/javascript" src="/exe_website_checkcart/static/src/js/prevent_duplicate_cart.js"/>
     </xpath>
   </template>

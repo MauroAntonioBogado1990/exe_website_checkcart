@@ -1,0 +1,11 @@
+<odoo>
+  <template id="product_cart_warning" inherit_id="website_sale.product">
+    <xpath expr="//h1[@itemprop='name']" position="before">
+      <t t-if="product_in_cart">
+        <div class="alert alert-warning">
+          Este producto ya está en tu carrito.
+        </div>
+      </t>
+    </xpath>
+  </template>
+</odoo>

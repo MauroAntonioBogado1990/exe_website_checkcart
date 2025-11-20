@@ -67,7 +67,26 @@ class WebsiteSaleWarning(WebsiteSale):
     #         result['warning'] = warning_message
 
     #     return result
-    
+    #se agrega esto
+    def _is_product_in_cart(self, product_id):
+        order = request.website.sale_get_order()
+        return any(line.product_id.id == product_id for line in order.order_line)
+
+    @http.route(['/shop/product/<model("product.template"):product>'], type='http', auth="public", website=True)
+    def product_page(self, product, **kwargs):
+        combination = product._get_first_possible_combination()
+        combination_info = product._get_combination_info(combination, add_qty=1, pricelist=request.website.get_current_pricelist())
+        product_variant = request.env['product.product'].browse(combination_info['product_id'])
+
+        return request.render('website_sale.product', {
+            'product': product,
+            'product_variant': product_variant,
+            'combination': combination,
+            'combination_info': combination_info,
+            'product_in_cart': self._is_product_in_cart(product_variant.id),
+        })
+
+
     # CÓDIGO FINAL VERIFICADO
     @http.route('/shop/cart/update_json', type='json', auth="public", methods=['POST'], website=True, csrf=False)
     def cart_update_json(self, product_id, add_qty=1, set_qty=0, force_add=False, **kwargs):
