@@ -126,8 +126,8 @@ odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
     var core = require('web.core');
     var _t = core._t;
 
-    // Duración de la alerta en milisegundos
-    var TOAST_DURATION = 9000; 
+    // Duración de la alerta en milisegundos: 10 SEGUNDOS
+    var TOAST_DURATION = 10000; 
 
     // Función para mostrar la alerta temporal (Toast) - MODIFICADA
     function showToast(msg, level) {
@@ -137,7 +137,8 @@ odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
         
         var $toast = $('<div/>', {class: 'exe-cart-toast'}).text(msg).css({
             position: 'fixed',
-            top: '20px',
+            // POSICIÓN ACTUALIZADA: 100px desde arriba
+            top: '100px', 
             'z-index': 20000,
             padding: '10px 14px',
             'background-color': bg,
@@ -146,7 +147,7 @@ odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
             'border': '1px solid rgba(0,0,0,0.05)',
             'box-shadow': '0 2px 6px rgba(0,0,0,0.12)',
             
-            // ESTILOS CLAVE PARA CENTRADO HORIZONTAL
+            // CENTRADO HORIZONTAL
             left: '50%',
             transform: 'translateX(-50%)',
             'text-align': 'center',
@@ -154,7 +155,7 @@ odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
         
         $('body').append($toast);
         
-        // El Toast se oculta después de 5 segundos (5000ms)
+        // El Toast se oculta después de 10 segundos
         setTimeout(function () { $toast.fadeOut(250, function () { $toast.remove(); }); }, TOAST_DURATION); 
     }
 
@@ -176,7 +177,7 @@ odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
         }
     });
 
-    // Nuevo widget para el botón "Ya está en el carrito" - MODIFICADO (duración de la redirección)
+    // Widget para el botón "Ya está en el carrito" (sin cambios en esta sección)
     const publicWidget = require('web.public.widget');
 
     publicWidget.registry.CartButtonWarning = publicWidget.Widget.extend({
@@ -188,13 +189,12 @@ odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
         _onClick: function (ev) {
             ev.preventDefault(); 
             
-            showToast(_t("¡El producto ya existe en tu carrito! Redirigiendo..."), 'warning');
+            showToast(_t("¡El producto ya existe en tu carrito! Redirigiendo a su carrito..."), 'warning');
             
-            // Redirige al carrito después de 1 segundo (ajustado para que el usuario lea)
+            // Redirige al carrito después de 1 segundo
             setTimeout(function() {
                 window.location.href = "/shop/cart";
             }, 1000); 
         },
     });
 });
-
