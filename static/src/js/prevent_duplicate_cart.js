@@ -121,19 +121,22 @@ odoo.define('exe_website_checkcart.confirm_cart_addition', function (require) {
 
 odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
     "use strict";
-    // Asegurarnos de cargar primero el módulo de la tienda para evitar errores
     require('website_sale.website_sale');
-
+    
     var core = require('web.core');
     var _t = core._t;
 
+    // Duración de la alerta en milisegundos
+    var TOAST_DURATION = 9000; 
+
+    // Función para mostrar la alerta temporal (Toast) - MODIFICADA
     function showToast(msg, level) {
         level = level || 'info';
         var bg = (level === 'warning' ? '#f2dede' : '#dff0d8');
         var color = (level === 'warning' ? '#a94442' : '#3c763d');
+        
         var $toast = $('<div/>', {class: 'exe-cart-toast'}).text(msg).css({
             position: 'fixed',
-            right: '20px',
             top: '20px',
             'z-index': 20000,
             padding: '10px 14px',
@@ -141,18 +144,24 @@ odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
             color: color,
             'border-radius': '4px',
             'border': '1px solid rgba(0,0,0,0.05)',
-            'box-shadow': '0 2px 6px rgba(0,0,0,0.12)'
+            'box-shadow': '0 2px 6px rgba(0,0,0,0.12)',
+            
+            // ESTILOS CLAVE PARA CENTRADO HORIZONTAL
+            left: '50%',
+            transform: 'translateX(-50%)',
+            'text-align': 'center',
         });
+        
         $('body').append($toast);
-        setTimeout(function () { $toast.fadeOut(250, function () { $toast.remove(); }); }, 3000);
+        
+        // El Toast se oculta después de 5 segundos (5000ms)
+        setTimeout(function () { $toast.fadeOut(250, function () { $toast.remove(); }); }, TOAST_DURATION); 
     }
 
-    // Sólo escuchar respuestas AJAX del endpoint del carrito y mostrar mensajes.
-    // NO sobreescribimos ni interceptamos métodos de WebsiteSale para no romper eliminar/ajustar cantidades.
+    // Escuchador de respuestas AJAX del carrito (sin cambios en esta sección)
     $(document).ajaxComplete(function (event, xhr, settings) {
         try {
-            if (!settings || !settings.url) { return; }
-            if (settings.url.indexOf('/shop/cart/update_json') === -1) { return; }
+            if (!settings || !settings.url || settings.url.indexOf('/shop/cart/update_json') === -1) { return; }
             if (xhr.status !== 200) { return; }
 
             var data;
@@ -161,29 +170,30 @@ odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
 
             if (data.warning) { showToast(data.warning, 'warning'); }
             else if (data.info || data.message) { showToast(data.info || data.message, 'info'); }
+            
         } catch (err) {
             console.error('prevent_duplicate_cart error:', err);
         }
     });
+
+    // Nuevo widget para el botón "Ya está en el carrito" - MODIFICADO (duración de la redirección)
     const publicWidget = require('web.public.widget');
 
-    // Nuevo widget para capturar el clic en el botón "Ya está en el carrito"
     publicWidget.registry.CartButtonWarning = publicWidget.Widget.extend({
-        selector: '.js_redirect_with_warning', // Captura la nueva clase del botón
+        selector: '.js_redirect_with_warning', 
         events: {
             'click': '_onClick',
         },
 
         _onClick: function (ev) {
-            ev.preventDefault(); // Evita que el href="#" se ejecute inmediatamente (y la URL se rompa)
+            ev.preventDefault(); 
             
-            // Usamos la función showToast que definiste
             showToast(_t("¡El producto ya existe en tu carrito! Redirigiendo..."), 'warning');
             
-            // Redirige al carrito después de un breve retraso (para que la alerta sea visible)
+            // Redirige al carrito después de 1 segundo (ajustado para que el usuario lea)
             setTimeout(function() {
                 window.location.href = "/shop/cart";
-            }, 700); // Retraso de 700ms para leer el mensaje
+            }, 1000); 
         },
     });
 });
