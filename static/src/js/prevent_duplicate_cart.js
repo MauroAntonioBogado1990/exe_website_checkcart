@@ -165,4 +165,26 @@ odoo.define('exe_website_checkcart.prevent_duplicate_cart', function (require) {
             console.error('prevent_duplicate_cart error:', err);
         }
     });
+    const publicWidget = require('web.public.widget');
+
+    // Nuevo widget para capturar el clic en el botón "Ya está en el carrito"
+    publicWidget.registry.CartButtonWarning = publicWidget.Widget.extend({
+        selector: '.js_redirect_with_warning', // Captura la nueva clase del botón
+        events: {
+            'click': '_onClick',
+        },
+
+        _onClick: function (ev) {
+            ev.preventDefault(); // Evita que el href="#" se ejecute inmediatamente (y la URL se rompa)
+            
+            // Usamos la función showToast que definiste
+            showToast(_t("¡El producto ya existe en tu carrito! Redirigiendo..."), 'warning');
+            
+            // Redirige al carrito después de un breve retraso (para que la alerta sea visible)
+            setTimeout(function() {
+                window.location.href = "/shop/cart";
+            }, 700); // Retraso de 700ms para leer el mensaje
+        },
+    });
 });
+

@@ -1,36 +1,32 @@
 <odoo>
-  <template id="product_cart_warning" inherit_id="website_sale.product">
-    <!-- <xpath expr="//h1[@itemprop='name']" position="before">
-      
+    <template id="product_cart_warning" inherit_id="website_sale.product">
 
-      <t t-if="product_in_cart">
-        <div class="alert alert-warning">
-          Este producto ya está en tu carrito.
-        </div>
-      </t>
-    </xpath> -->
-    
-    <xpath expr="//a[@id='add_to_cart']" position="replace">
-        <t t-set="website_sale_order" t-value="website.sale_get_order()"/>
+        <xpath expr="//h1[@itemprop='name']" position="before">
+            <t t-if="product_in_cart">
+                <div class="alert alert-warning p-2 mb-2 text-center" role="alert" style="font-weight: bold;">
+                    <i class="fa fa-info-circle"/> Este producto ya está en tu carrito.
+                </div>
+            </t>
+        </xpath>
         
-        <t t-set="current_variant_id" t-value="product_variant.id if product_variant else product.product_variant_id.id"/>
-        <t t-set="cart_product_ids" t-value="website_sale_order.order_line.mapped('product_id.id')"/>
+        <xpath expr="//a[@id='add_to_cart']" position="replace">
+            <t t-set="website_sale_order" t-value="website.sale_get_order()"/>
+            
+            <t t-set="current_variant_id" t-value="product_variant.id if product_variant else product.product_variant_id.id"/>
+            <t t-set="cart_product_ids" t-value="website_sale_order.order_line.mapped('product_id.id')"/>
 
-        <t t-if="current_variant_id in cart_product_ids">
-            <a role="button" class="btn btn-success btn-lg mt16 d-block d-sm-inline-block" href="/shop/cart">
-                <i class="fa fa-check"/> Ya está en el carrito
-            </a>
-        </t>
-        
-        <t t-else="">
-            <a role="button" id="add_to_cart" class="btn btn-primary btn-lg mt16 js_check_product a-submit d-block d-sm-inline-block" href="#">
-                <i class="fa fa-shopping-cart"/> Añadir al carrito
-            </a>
-        </t>
-    </xpath>
-
-
-  </template>
-  
-  
+            <t t-if="current_variant_id in cart_product_ids">
+                <a role="button" class="btn btn-success btn-lg mt16 d-block d-sm-inline-block js_redirect_with_warning" href="#">
+                    <i class="fa fa-check"/> Ya está en el carrito
+                </a>
+            </t>
+            
+            <t t-else="">
+                <a role="button" id="add_to_cart" class="btn btn-primary btn-lg mt16 js_check_product a-submit d-block d-sm-inline-block" href="#">
+                    <i class="fa fa-shopping-cart"/> Añadir al carrito
+                </a>
+            </t>
+        </xpath>
+    </template>
 </odoo>
+
